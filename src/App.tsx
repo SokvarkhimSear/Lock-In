@@ -327,12 +327,14 @@ export default function App() {
                   onDeleteAssignment={handleDeleteAssignment}
                   onEditAssignment={handleEditAssignment}
                   onOpenAddModal={() => handleOpenAddModal()}
+                  todayDate={currentDate}
                 />
 
                 <DeadlineCalendar
                   assignments={assignments}
                   onSelectDate={(d) => handleOpenAddModal(d)}
                   onOpenAddModal={(d) => handleOpenAddModal(d)}
+                  todayDate={currentDate}
                 />
               </div>
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, Sparkles, X, BookOpen, AlertCircle } from 'lucide-react';
 import { Assignment, PriorityLevel } from '../types';
 import { COURSES } from '../data/scheduleData';
+import { formatLocalDateStr } from '../utils/timeEngine';
 
 interface AssignmentModalProps {
   isOpen: boolean;
@@ -48,7 +49,7 @@ export const AssignmentModal: React.FC<AssignmentModalProps> = ({
         setCustomCourse('');
         setTitle('');
         setDescription('');
-        setDueDate(initialDate || new Date().toISOString().split('T')[0]);
+        setDueDate(initialDate || formatLocalDateStr());
         setDueTime('23:59');
         setPriority('high');
       }

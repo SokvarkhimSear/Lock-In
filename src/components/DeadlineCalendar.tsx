@@ -8,20 +8,23 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Assignment } from '../types';
+import { formatLocalDateStr } from '../utils/timeEngine';
 
 interface DeadlineCalendarProps {
   assignments: Assignment[];
   onSelectDate: (dateString: string) => void;
   onOpenAddModal: (dateString?: string) => void;
+  todayDate?: Date;
 }
 
 export const DeadlineCalendar: React.FC<DeadlineCalendarProps> = ({
   assignments,
   onSelectDate,
   onOpenAddModal,
+  todayDate,
 }) => {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
-  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [currentDate, setCurrentDate] = useState(() => todayDate || new Date());
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -47,7 +50,7 @@ export const DeadlineCalendar: React.FC<DeadlineCalendarProps> = ({
   };
 
   const jumpToToday = () => {
-    setCurrentDate(new Date());
+    setCurrentDate(todayDate || new Date());
   };
 
   // Build days for month view
@@ -70,7 +73,7 @@ export const DeadlineCalendar: React.FC<DeadlineCalendarProps> = ({
     assignmentsByDate[asg.dueDate].push(asg);
   });
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDateStr(todayDate || new Date());
 
   // Generate month cells
   const renderMonthCells = () => {

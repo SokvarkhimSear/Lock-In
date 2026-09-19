@@ -12,7 +12,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Assignment } from '../types';
-import { soundEngine } from '../utils/timeEngine';
+import { formatLocalDateStr, soundEngine } from '../utils/timeEngine';
 
 interface AssignmentListProps {
   assignments: Assignment[];
@@ -20,6 +20,7 @@ interface AssignmentListProps {
   onDeleteAssignment: (id: string) => void;
   onEditAssignment: (assignment: Assignment) => void;
   onOpenAddModal: () => void;
+  todayDate?: Date;
 }
 
 export const AssignmentList: React.FC<AssignmentListProps> = ({
@@ -28,14 +29,15 @@ export const AssignmentList: React.FC<AssignmentListProps> = ({
   onDeleteAssignment,
   onEditAssignment,
   onOpenAddModal,
+  todayDate,
 }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [courseFilter, setCourseFilter] = useState<string>('ALL');
 
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
-  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const nextWeekDate = new Date(todayDate);
+  const now = todayDate || new Date();
+  const todayStr = formatLocalDateStr(now);
+  const todayDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const nextWeekDate = new Date(todayDateObj);
   nextWeekDate.setDate(nextWeekDate.getDate() + 7);
 
   // Filter list
@@ -54,7 +56,7 @@ export const AssignmentList: React.FC<AssignmentListProps> = ({
   if (activeTab === 'active') {
     filtered.forEach((asg) => {
       const asgDate = new Date(`${asg.dueDate}T00:00:00`);
-      if (asg.dueDate === todayStr || asgDate <= todayDate) {
+      if (asg.dueDate === todayStr || asgDate <= todayDateObj) {
         dueToday.push(asg);
       } else if (asgDate <= nextWeekDate) {
         dueThisWeek.push(asg);
