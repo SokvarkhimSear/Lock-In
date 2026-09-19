@@ -37,6 +37,7 @@ export interface Assignment {
   dueTime: string; // "23:59" or "11:59 PM"
   priority: PriorityLevel;
   isCompleted: boolean;
+  alertSent?: boolean;
   completedAt?: string;
   createdAt: string;
 }

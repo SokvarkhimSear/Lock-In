@@ -332,3 +332,39 @@ export function formatDueDateTimeICT(dueDate: string, dueTime?: string): string 
   }
 }
 
+/**
+ * Parses a dueDate (YYYY-MM-DD) and dueTime (HH:mm) into a UTC epoch timestamp
+ * based strictly on Asia/Phnom_Penh (UTC+7 / ICT) calendar time.
+ */
+export function getDueTimestampICT(dueDate: string, dueTime?: string): number {
+  if (!dueDate) return 0;
+  const cleanTime = dueTime && dueTime.includes(':') ? dueTime : '23:59';
+  const [yearStr, monthStr, dayStr] = dueDate.split('-');
+  const [hourStr, minuteStr] = cleanTime.split(':');
+
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+  const hour = parseInt(hourStr, 10) || 0;
+  const minute = parseInt(minuteStr, 10) || 0;
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return 0;
+
+  // Since Asia/Phnom_Penh is fixed at UTC+7 with no daylight saving time:
+  // Local time = UTC + 7 hours -> UTC = Local time - 7 hours
+  const utcMillis = Date.UTC(year, month - 1, day, hour, minute, 0, 0) - (7 * 60 * 60 * 1000);
+  return utcMillis;
+}
+
+/**
+ * Calculates remaining minutes until the assignment deadline based on ICT time.
+ * Returns null if invalid.
+ */
+export function getMinutesUntilDue(dueDate: string, dueTime?: string, referenceDate: Date = new Date()): number | null {
+  const targetEpoch = getDueTimestampICT(dueDate, dueTime);
+  if (!targetEpoch) return null;
+
+  const diffMs = targetEpoch - referenceDate.getTime();
+  return diffMs / (60 * 1000);
+}
+

@@ -1,5 +1,5 @@
 // Telegram Bot Configuration & Mini App WebApp SDK Integration
-import { formatDueDateTimeICT } from '../utils/timeEngine';
+import { formatDueDateTimeICT, formatTime12h } from '../utils/timeEngine';
 
 export const TELEGRAM_CONFIG = {
   botToken: "8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA",
@@ -138,3 +138,21 @@ export async function sendScheduleShiftTelegramReminder(
 
   return sendTelegramMessage(message);
 }
+
+/**
+ * 1-Hour Pre-Deadline Alert dispatched when an assignment is due in 1 hour.
+ * Format: "⚠️ *UPCOMING DEADLINE ALERT*\n\nYour task *[Assignment Name]* is due in 1 hour (at [Exact Time])!\n\nLock in now!"
+ */
+export async function sendOneHourPreDeadlineAlert(
+  assignmentTitle: string,
+  dueTime: string
+): Promise<boolean> {
+  const displayTime = formatTime12h(dueTime) || dueTime;
+  const message =
+    `⚠️ *UPCOMING DEADLINE ALERT*\n\n` +
+    `Your task *${assignmentTitle}* is due in 1 hour (at ${displayTime})!\n\n` +
+    `Lock in now!`;
+
+  return sendTelegramMessage(message);
+}
+

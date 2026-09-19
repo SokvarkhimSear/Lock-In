@@ -17,11 +17,13 @@ import {
   triggerHapticFeedback,
   sendAssignmentTelegramReminder,
   sendScheduleShiftTelegramReminder,
+  sendOneHourPreDeadlineAlert,
 } from './lib/telegram';
 import {
   calculateFlowStatus,
   CurrentFlowStatus,
   getCurrentDayBlocks,
+  getMinutesUntilDue,
   soundEngine,
 } from './utils/timeEngine';
 import { Header } from './components/Header';
@@ -112,6 +114,60 @@ export default function App() {
     setAssignments(updated);
     saveStoredAssignments(updated);
   };
+
+  // Keep latest assignments ref for background interval scanning
+  const assignmentsRef = useRef<Assignment[]>(assignments);
+  useEffect(() => {
+    assignmentsRef.current = assignments;
+  }, [assignments]);
+
+  // Set to track assignments alerted in the current session to prevent duplicate notifications
+  const alertedIdsRef = useRef<Set<string>>(new Set());
+
+  // 1-Hour Pre-Deadline Notification Background Checker:
+  // Scans all active Firebase assignments every 60 seconds using local ICT (UTC+7) time.
+  useEffect(() => {
+    const checkUpcomingDeadlines = async () => {
+      const now = new Date();
+      const currentList = assignmentsRef.current;
+
+      for (const assignment of currentList) {
+        // Skip completed or already alerted assignments
+        if (assignment.isCompleted || assignment.alertSent || alertedIdsRef.current.has(assignment.id)) {
+          continue;
+        }
+
+        const minutesLeft = getMinutesUntilDue(assignment.dueDate, assignment.dueTime, now);
+        if (minutesLeft === null) continue;
+
+        // If deadline is between 59 and 60 minutes away
+        if (minutesLeft >= 59 && minutesLeft <= 60) {
+          alertedIdsRef.current.add(assignment.id);
+
+          // Dispatch Telegram notification to ID 2128817856
+          await sendOneHourPreDeadlineAlert(assignment.title, assignment.dueTime);
+
+          // Mark alertSent: true on that assignment document in Firebase and local storage
+          const updatedAssignment: Assignment = {
+            ...assignment,
+            alertSent: true,
+          };
+
+          syncSaveAssignment(updatedAssignment);
+          setAssignments((prev) =>
+            prev.map((a) => (a.id === updatedAssignment.id ? updatedAssignment : a))
+          );
+        }
+      }
+    };
+
+    // Run initial scan once
+    checkUpcomingDeadlines();
+
+    // Run every 60 seconds
+    const interval = setInterval(checkUpcomingDeadlines, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Compute active timetable engine flow status
   const flowStatus: CurrentFlowStatus = useMemo(() => {
