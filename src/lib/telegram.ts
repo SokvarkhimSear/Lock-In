@@ -1,0 +1,135 @@
+// Telegram Bot Configuration & Mini App WebApp SDK Integration
+
+export const TELEGRAM_CONFIG = {
+  botToken: "8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA",
+  userTelegramId: "2128817856",
+  apiUrl: "https://api.telegram.org/bot8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA/sendMessage"
+};
+
+// Global TypeScript declaration for Telegram WebApp
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        ready: () => void;
+        expand: () => void;
+        close: () => void;
+        isExpanded: boolean;
+        viewportHeight: number;
+        viewportStableHeight: number;
+        headerColor: string;
+        backgroundColor: string;
+        initData: string;
+        initDataUnsafe: Record<string, any>;
+        HapticFeedback: {
+          impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+          notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+          selectionChanged: () => void;
+        };
+      };
+    };
+  }
+}
+
+/**
+ * Initialize the Telegram WebApp SDK when running inside Telegram
+ */
+export function initTelegramWebApp(): void {
+  if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+    try {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      console.log('Telegram WebApp SDK successfully initialized and expanded');
+    } catch (err) {
+      console.warn('Could not initialize Telegram WebApp:', err);
+    }
+  }
+}
+
+/**
+ * Trigger Haptic Feedback in the Telegram Mini App
+ */
+export function triggerHapticFeedback(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'medium'): void {
+  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
+    try {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred(style);
+    } catch (err) {
+      console.debug('Haptic feedback not supported on this device/environment', err);
+    }
+  }
+}
+
+/**
+ * Dispatches a message to the specified Telegram user ID using fetch()
+ */
+export async function sendTelegramMessage(text: string, parseMode: 'Markdown' | 'HTML' = 'Markdown'): Promise<boolean> {
+  try {
+    const payload = {
+      chat_id: TELEGRAM_CONFIG.userTelegramId,
+      text: text,
+      parse_mode: parseMode
+    };
+
+    const response = await fetch(TELEGRAM_CONFIG.apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!data.ok) {
+      console.warn('Telegram API response error:', data);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.warn('Failed to send Telegram message:', error);
+    return false;
+  }
+}
+
+/**
+ * Notification dispatched when an assignment is due or created
+ */
+export async function sendAssignmentTelegramReminder(
+  action: 'added' | 'completed' | 'due_soon',
+  title: string,
+  courseCode: string,
+  dueDate: string
+): Promise<boolean> {
+  const icon = action === 'completed' ? '✅' : action === 'due_soon' ? '⏳' : '📌';
+  const actionText =
+    action === 'completed'
+      ? 'Assignment Completed'
+      : action === 'due_soon'
+      ? 'Assignment Due Soon'
+      : 'New Assignment Added';
+
+  const message = `${icon} *LockIn Notification: ${actionText}*\n\n` +
+    `*Course:* ${courseCode}\n` +
+    `*Title:* ${title}\n` +
+    `*Due:* ${new Date(dueDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}\n\n` +
+    `_Sent via LockIn Telegram Integration_`;
+
+  return sendTelegramMessage(message);
+}
+
+/**
+ * Notification dispatched when a schedule block shifts or begins
+ */
+export async function sendScheduleShiftTelegramReminder(
+  blockTitle: string,
+  startTime: string,
+  endTime: string,
+  category: string
+): Promise<boolean> {
+  const message = `⚡ *LockIn Schedule Shift*\n\n` +
+    `*Current Block:* ${blockTitle}\n` +
+    `*Time:* ${startTime} - ${endTime}\n` +
+    `*Category:* ${category.toUpperCase()}\n\n` +
+    `_Locked in. Eliminate distractions and execute._`;
+
+  return sendTelegramMessage(message);
+}

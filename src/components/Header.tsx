@@ -10,9 +10,12 @@ import {
   Sparkles,
   SlidersHorizontal,
   X,
-  Cloud
+  Cloud,
+  Send,
+  Check
 } from 'lucide-react';
 import { DayOfWeek } from '../types';
+import { sendTelegramMessage, triggerHapticFeedback } from '../lib/telegram';
 
 interface HeaderProps {
   currentDate: Date;
@@ -47,6 +50,25 @@ export const Header: React.FC<HeaderProps> = ({
   const [showSimModal, setShowSimModal] = useState(false);
   const [selectedSimDay, setSelectedSimDay] = useState<DayOfWeek>(1);
   const [selectedSimTime, setSelectedSimTime] = useState<string>('09:00');
+  const [telegramStatus, setTelegramStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  const handleSendTelegramTest = async () => {
+    if (telegramStatus === 'sending') return;
+    setTelegramStatus('sending');
+    triggerHapticFeedback('medium');
+    const success = await sendTelegramMessage(
+      `⚡ *LockIn Bot Test Notification*\n\n` +
+      `Telegram Bot notifications are active and connected for ID \`2128817856\`!\n` +
+      `Timestamp: ${new Date().toLocaleTimeString()}\n\n` +
+      `_Status: Live & Locked In._`
+    );
+    if (success) {
+      setTelegramStatus('sent');
+      setTimeout(() => setTelegramStatus('idle'), 3000);
+    } else {
+      setTelegramStatus('idle');
+    }
+  };
 
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -103,6 +125,26 @@ export const Header: React.FC<HeaderProps> = ({
                   <Cloud className="w-3 h-3 text-emerald-400 fill-emerald-400/20" />
                   <span>Firebase</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={handleSendTelegramTest}
+                  disabled={telegramStatus === 'sending'}
+                  className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition-colors cursor-pointer"
+                  title="Telegram Bot: 8988649214 -> ID 2128817856. Click to send test alert!"
+                >
+                  {telegramStatus === 'sent' ? (
+                    <Check className="w-3 h-3 text-emerald-400" />
+                  ) : (
+                    <Send className="w-3 h-3 text-sky-400" />
+                  )}
+                  <span>
+                    {telegramStatus === 'sending'
+                      ? 'Sending...'
+                      : telegramStatus === 'sent'
+                      ? 'Sent!'
+                      : 'Telegram'}
+                  </span>
+                </button>
                 {isSimulating && (
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>

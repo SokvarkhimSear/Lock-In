@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Assignment, DayOfWeek, ScheduleBlock } from './types';
 import {
   addStoredBlockLog,
@@ -12,6 +12,12 @@ import {
   subscribeToAssignments,
   subscribeToBlockLogs,
 } from './lib/firebase';
+import {
+  initTelegramWebApp,
+  triggerHapticFeedback,
+  sendAssignmentTelegramReminder,
+  sendScheduleShiftTelegramReminder,
+} from './lib/telegram';
 import {
   calculateFlowStatus,
   CurrentFlowStatus,
@@ -54,6 +60,11 @@ export default function App() {
   const [assignments, setAssignments] = useState<Assignment[]>(() => getStoredAssignments());
   const [completedCount, setCompletedCount] = useState<number>(() => getTodayBlockCompletionCount());
   const [completedBlockIds, setCompletedBlockIds] = useState<Set<string>>(new Set());
+
+  // Initialize Telegram Mini App WebApp SDK on application load
+  useEffect(() => {
+    initTelegramWebApp();
+  }, []);
 
   // Real-time clock interval (ticks every 1s)
   useEffect(() => {
@@ -114,6 +125,22 @@ export default function App() {
   const activeDayIndex = isSimulating && simulatedDay !== null ? simulatedDay : (currentDate.getDay() as DayOfWeek);
   const todayBlocks = useMemo(() => getCurrentDayBlocks(activeDayIndex), [activeDayIndex]);
 
+  // Track schedule block shifts and dispatch Telegram reminders to user
+  const prevBlockIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (flowStatus.currentBlock && flowStatus.currentBlock.id !== prevBlockIdRef.current) {
+      if (prevBlockIdRef.current !== null) {
+        sendScheduleShiftTelegramReminder(
+          flowStatus.currentBlock.title,
+          flowStatus.currentBlock.startTime,
+          flowStatus.currentBlock.endTime,
+          flowStatus.currentBlock.category
+        );
+      }
+      prevBlockIdRef.current = flowStatus.currentBlock.id;
+    }
+  }, [flowStatus.currentBlock]);
+
   // Handler for marking block completed
   const handleMarkBlockCompleted = (block: ScheduleBlock) => {
     setCompletedBlockIds((prev) => new Set([...prev, block.id]));
@@ -164,6 +191,7 @@ export default function App() {
       );
       updateAssignmentsState(updated);
       syncSaveAssignment(updatedItem);
+      triggerHapticFeedback('light');
       setEditingAssignment(null);
     } else {
       const newAsg: Assignment = {
@@ -174,6 +202,8 @@ export default function App() {
       };
       updateAssignmentsState([newAsg, ...assignments]);
       syncSaveAssignment(newAsg);
+      triggerHapticFeedback('medium');
+      sendAssignmentTelegramReminder('added', newAsg.title, newAsg.courseCode, newAsg.dueDate);
     }
   };
 
@@ -191,6 +221,10 @@ export default function App() {
     const updated = assignments.map((a) => (a.id === id ? updatedItem : a));
     updateAssignmentsState(updated);
     syncSaveAssignment(updatedItem);
+    triggerHapticFeedback('medium');
+    if (nextCompleted) {
+      sendAssignmentTelegramReminder('completed', updatedItem.title, updatedItem.courseCode, updatedItem.dueDate);
+    }
   };
 
   const handleDeleteAssignment = (id: string) => {
