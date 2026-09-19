@@ -8,7 +8,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Assignment } from '../types';
-import { formatLocalDateStr } from '../utils/timeEngine';
+import { formatLocalDateStr, formatTime12h } from '../utils/timeEngine';
 
 interface DeadlineCalendarProps {
   assignments: Assignment[];
@@ -284,7 +284,7 @@ export const DeadlineCalendar: React.FC<DeadlineCalendarProps> = ({
                   >
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="font-mono text-[10px] font-semibold opacity-80">{a.courseCode}</span>
-                      <span className="font-mono text-[10px]">{a.dueTime}</span>
+                      <span className="font-mono text-[10px]">{formatTime12h(a.dueTime) || a.dueTime}</span>
                     </div>
                     <p className="font-medium truncate">{a.title}</p>
                   </div>

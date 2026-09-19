@@ -257,6 +257,11 @@ class SoundEngine {
 export const soundEngine = new SoundEngine();
 
 /**
+ * Target Timezone for user scheduling & notifications (Asia/Phnom_Penh / Indochina Time UTC+7)
+ */
+export const USER_TIMEZONE = 'Asia/Phnom_Penh';
+
+/**
  * Formats a Date object into a local 'YYYY-MM-DD' string without UTC timezone shift.
  */
 export function formatLocalDateStr(date: Date = new Date()): string {
@@ -265,3 +270,65 @@ export function formatLocalDateStr(date: Date = new Date()): string {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * Formats a 24-hour time string ("HH:mm") into a 12-hour formatted time (e.g. "07:00 PM" or "11:59 PM").
+ */
+export function formatTime12h(timeStr: string): string {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (isNaN(hours) || isNaN(minutes)) return timeStr;
+
+  const d = new Date();
+  d.setHours(hours, minutes, 0, 0);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+/**
+ * Safely parses dueDate ("YYYY-MM-DD") and dueTime ("HH:mm") into a formatted string
+ * explicitly in Asia/Phnom_Penh (UTC+7 / ICT), avoiding browser-to-UTC corruption.
+ */
+export function formatDueDateTimeICT(dueDate: string, dueTime?: string): string {
+  if (!dueDate) return '';
+  const cleanTime = dueTime && dueTime.includes(':') ? dueTime : '23:59';
+  const [yearStr, monthStr, dayStr] = dueDate.split('-');
+  const [hourStr, minuteStr] = cleanTime.split(':');
+
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1;
+  const day = parseInt(dayStr, 10);
+  const hour = parseInt(hourStr, 10) || 0;
+  const minute = parseInt(minuteStr, 10) || 0;
+
+  // Create Date representing this calendar moment
+  const dateObj = new Date(year, month, day, hour, minute, 0);
+
+  // Format with explicit Asia/Phnom_Penh time zone
+  try {
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+      timeZone: USER_TIMEZONE,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    const formattedTime = dateObj.toLocaleTimeString('en-US', {
+      timeZone: USER_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    return `${formattedDate} at ${formattedTime} (ICT)`;
+  } catch {
+    // Fallback if environment doesn't recognize specific IANA name
+    const d = new Date(year, month, day, hour, minute, 0);
+    const datePart = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    const timePart = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${datePart} at ${timePart} (UTC+7)`;
+  }
+}
+

@@ -12,7 +12,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Assignment } from '../types';
-import { formatLocalDateStr, soundEngine } from '../utils/timeEngine';
+import { formatLocalDateStr, formatTime12h, soundEngine } from '../utils/timeEngine';
 
 interface AssignmentListProps {
   assignments: Assignment[];
@@ -133,7 +133,7 @@ export const AssignmentList: React.FC<AssignmentListProps> = ({
                 <Clock className="w-3.5 h-3.5 text-slate-500" />
                 <span>{asg.dueDate}</span>
                 <span className="text-slate-600">@</span>
-                <span className="text-slate-200 font-semibold">{asg.dueTime}</span>
+                <span className="text-slate-200 font-semibold">{formatTime12h(asg.dueTime) || asg.dueTime}</span>
               </span>
             </div>
 

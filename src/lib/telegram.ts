@@ -1,4 +1,5 @@
 // Telegram Bot Configuration & Mini App WebApp SDK Integration
+import { formatDueDateTimeICT } from '../utils/timeEngine';
 
 export const TELEGRAM_CONFIG = {
   botToken: "8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA",
@@ -97,7 +98,8 @@ export async function sendAssignmentTelegramReminder(
   action: 'added' | 'completed' | 'due_soon',
   title: string,
   courseCode: string,
-  dueDate: string
+  dueDate: string,
+  dueTime?: string
 ): Promise<boolean> {
   const icon = action === 'completed' ? '✅' : action === 'due_soon' ? '⏳' : '📌';
   const actionText =
@@ -107,10 +109,13 @@ export async function sendAssignmentTelegramReminder(
       ? 'Assignment Due Soon'
       : 'New Assignment Added';
 
+  // Format explicitly in Asia/Phnom_Penh (UTC+7)
+  const formattedDue = formatDueDateTimeICT(dueDate, dueTime);
+
   const message = `${icon} *LockIn Notification: ${actionText}*\n\n` +
     `*Course:* ${courseCode}\n` +
     `*Title:* ${title}\n` +
-    `*Due:* ${new Date(dueDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}\n\n` +
+    `*Deadline:* ${formattedDue}\n\n` +
     `_Sent via LockIn Telegram Integration_`;
 
   return sendTelegramMessage(message);

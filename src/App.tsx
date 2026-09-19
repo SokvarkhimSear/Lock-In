@@ -203,7 +203,7 @@ export default function App() {
       updateAssignmentsState([newAsg, ...assignments]);
       syncSaveAssignment(newAsg);
       triggerHapticFeedback('medium');
-      sendAssignmentTelegramReminder('added', newAsg.title, newAsg.courseCode, newAsg.dueDate);
+      sendAssignmentTelegramReminder('added', newAsg.title, newAsg.courseCode, newAsg.dueDate, newAsg.dueTime);
     }
   };
 
@@ -223,7 +223,7 @@ export default function App() {
     syncSaveAssignment(updatedItem);
     triggerHapticFeedback('medium');
     if (nextCompleted) {
-      sendAssignmentTelegramReminder('completed', updatedItem.title, updatedItem.courseCode, updatedItem.dueDate);
+      sendAssignmentTelegramReminder('completed', updatedItem.title, updatedItem.courseCode, updatedItem.dueDate, updatedItem.dueTime);
     }
   };
 
