@@ -1,9 +1,18 @@
 // Telegram Bot Configuration & Mini App WebApp SDK Integration
 import { formatDueDateTimeICT, formatTime12h } from '../utils/timeEngine';
 
+export interface TelegramRecipient {
+  id: string;
+  name: string;
+}
+
 export const TELEGRAM_CONFIG = {
   botToken: "8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA",
   userTelegramId: "2128817856",
+  recipients: [
+    { id: "2128817856", name: "Primary Account" },
+    { id: "957660223", name: "Heng Huykeang" }
+  ] as TelegramRecipient[],
   apiUrl: "https://api.telegram.org/bot8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA/sendMessage"
 };
 
@@ -61,30 +70,40 @@ export function triggerHapticFeedback(style: 'light' | 'medium' | 'heavy' | 'rig
 }
 
 /**
- * Dispatches a message to the specified Telegram user ID using fetch()
+ * Dispatches a message to all registered Telegram recipients using fetch()
  */
 export async function sendTelegramMessage(text: string, parseMode: 'Markdown' | 'HTML' = 'Markdown'): Promise<boolean> {
+  const recipients = TELEGRAM_CONFIG.recipients;
   try {
-    const payload = {
-      chat_id: TELEGRAM_CONFIG.userTelegramId,
-      text: text,
-      parse_mode: parseMode
-    };
+    const results = await Promise.allSettled(
+      recipients.map(async (recipient) => {
+        const payload = {
+          chat_id: recipient.id,
+          text: text,
+          parse_mode: parseMode
+        };
 
-    const response = await fetch(TELEGRAM_CONFIG.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+        const response = await fetch(TELEGRAM_CONFIG.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
 
-    const data = await response.json();
-    if (!data.ok) {
-      console.warn('Telegram API response error:', data);
-      return false;
-    }
-    return true;
+        const data = await response.json();
+        if (!data.ok) {
+          console.warn(`Telegram API error sending to ${recipient.name} (${recipient.id}):`, data);
+          return false;
+        }
+        return true;
+      })
+    );
+
+    const hasSuccess = results.some(
+      (res) => res.status === 'fulfilled' && res.value === true
+    );
+    return hasSuccess;
   } catch (error) {
     console.warn('Failed to send Telegram message:', error);
     return false;

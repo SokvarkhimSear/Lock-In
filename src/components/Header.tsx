@@ -402,7 +402,7 @@ export const Header: React.FC<HeaderProps> = ({
                       triggerHapticFeedback('medium');
                       const sent = await sendWorkoutTelegramPing();
                       if (sent) {
-                        alert('6:55 AM Workout Ping dispatched to Telegram ID 2128817856!');
+                        alert('6:55 AM Workout Ping dispatched to all registered Telegram accounts (Primary: 2128817856 & Heng Huykeang: 957660223)!');
                       }
                     }}
                     className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all"
