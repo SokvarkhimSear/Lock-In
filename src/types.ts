@@ -84,12 +84,14 @@ export interface Transaction {
   id: string;
   type: TransactionType;
   amount: number;
-  category: ExpenseCategory | string;
-  notes: string;
+  category: string;
+  description: string;
+  notes?: string;
   date: string; // YYYY-MM-DD (in ICT)
   time: string; // HH:mm (in ICT)
+  timestamp: string; // ISO or ICT full timestamp
   weekId: string; // e.g. "2026-W38"
-  createdAt: string;
+  createdAt?: string;
   isRecurring?: boolean;
 }
 
@@ -100,6 +102,20 @@ export interface RecurringExpense {
   category: ExpenseCategory | string;
   notes?: string;
   isEnabled: boolean;
+}
+
+export interface WeeklyArchive {
+  id: string; // weekId, e.g. "2026-W38"
+  weekId: string; // e.g. "2026-W38"
+  startDate: string;
+  endDate: string;
+  totalSpent: number;
+  totalIncome: number;
+  netWeeklyFlow: number;
+  budgetLimit: number;
+  archivedAt: string;
+  transactionCount: number;
+  transactions: Transaction[];
 }
 
 export interface ArchivedWeekSummary {
@@ -115,7 +131,6 @@ export interface ArchivedWeekSummary {
 
 export interface WeeklyFinancialBudget {
   weeklyBudgetLimit: number;
-  totalIncome: number;
   currentWeekId: string;
   archivedWeeks?: ArchivedWeekSummary[];
 }

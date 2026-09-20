@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import configJson from '../../firebase-applet-config.json';
-import { Assignment, NoteItem, BlockLog, Transaction, WeeklyFinancialBudget, RecurringExpense } from '../types';
+import { Assignment, NoteItem, BlockLog, Transaction, WeeklyFinancialBudget, RecurringExpense, WeeklyArchive } from '../types';
 
 /**
  * ============================================================================
@@ -329,4 +329,55 @@ export async function syncDeleteRecurringExpense(expenseId: string): Promise<voi
   const docRef = doc(db, RECURRING_EXPENSES_COLLECTION, expenseId);
   await deleteDoc(docRef);
 }
+
+// ============================================================================
+// WEEKLY ARCHIVES FIRESTORE REAL-TIME SYNC
+// ============================================================================
+export const WEEKLY_ARCHIVES_COLLECTION = 'weekly_archives';
+
+/**
+ * Real-time listener for Weekly Archives
+ */
+export function subscribeToWeeklyArchives(
+  onUpdate: (archives: WeeklyArchive[]) => void,
+  onError?: (err: Error) => void
+) {
+  const colRef = collection(db, WEEKLY_ARCHIVES_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const items: WeeklyArchive[] = [];
+      snapshot.forEach((docSnap) => {
+        items.push({
+          ...(docSnap.data() as WeeklyArchive),
+          id: docSnap.id,
+        });
+      });
+      // Sort newest week first (e.g. 2026-W38 before 2026-W37)
+      items.sort((a, b) => b.weekId.localeCompare(a.weekId));
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Firestore weekly archives subscription warning:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Save / Upsert Weekly Archive in Firestore
+ */
+export async function syncSaveWeeklyArchive(archive: WeeklyArchive): Promise<void> {
+  const docRef = doc(db, WEEKLY_ARCHIVES_COLLECTION, archive.weekId);
+  await setDoc(docRef, archive, { merge: true });
+}
+
+/**
+ * Delete Weekly Archive from Firestore
+ */
+export async function syncDeleteWeeklyArchive(weekId: string): Promise<void> {
+  const docRef = doc(db, WEEKLY_ARCHIVES_COLLECTION, weekId);
+  await deleteDoc(docRef);
+}
+
 

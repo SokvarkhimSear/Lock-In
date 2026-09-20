@@ -19,6 +19,9 @@ service cloud.firestore {
     match /recurring_expenses/{expenseId} {
       allow read, write: if true;
     }
+    match /weekly_archives/{archiveId} {
+      allow read, write: if true;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

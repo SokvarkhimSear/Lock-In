@@ -1,4 +1,4 @@
-import { Assignment, BlockLog, NoteItem, Transaction, WeeklyFinancialBudget, RecurringExpense } from '../types';
+import { Assignment, BlockLog, NoteItem, Transaction, WeeklyFinancialBudget, RecurringExpense, WeeklyArchive } from '../types';
 import { INITIAL_NOTES, DEFAULT_RECURRING_EXPENSES } from '../data/scheduleData';
 import {
   setFirestoreAssignment,
@@ -10,7 +10,9 @@ import {
   syncDeleteTransaction,
   syncSaveFinancialSettings,
   syncSaveRecurringExpense,
-  syncDeleteRecurringExpense
+  syncDeleteRecurringExpense,
+  syncSaveWeeklyArchive,
+  syncDeleteWeeklyArchive
 } from '../lib/firebase';
 
 const KEYS = {
@@ -21,6 +23,7 @@ const KEYS = {
   TRANSACTIONS: 'lockin_transactions_v1',
   FINANCIAL_BUDGET: 'lockin_financial_budget_v1',
   RECURRING_EXPENSES: 'lockin_recurring_expenses_v1',
+  WEEKLY_ARCHIVES: 'lockin_weekly_archives_v1',
 };
 
 export function getStoredAssignments(): Assignment[] {
@@ -219,7 +222,6 @@ export function getStoredFinancialBudget(currentWeekId: string): WeeklyFinancial
     if (!raw) {
       return {
         weeklyBudgetLimit: 150,
-        totalIncome: 0,
         currentWeekId,
         archivedWeeks: [],
       };
@@ -227,14 +229,12 @@ export function getStoredFinancialBudget(currentWeekId: string): WeeklyFinancial
     const parsed = JSON.parse(raw);
     return {
       weeklyBudgetLimit: parsed.weeklyBudgetLimit || 150,
-      totalIncome: parsed.totalIncome || 0,
       currentWeekId: parsed.currentWeekId || currentWeekId,
       archivedWeeks: Array.isArray(parsed.archivedWeeks) ? parsed.archivedWeeks : [],
     };
   } catch {
     return {
       weeklyBudgetLimit: 150,
-      totalIncome: 0,
       currentWeekId,
       archivedWeeks: [],
     };
@@ -267,4 +267,57 @@ export function saveStoredRecurringExpenses(expenses: RecurringExpense[]): void 
     console.error('Failed to save recurring expenses locally:', e);
   }
 }
+
+// ============================================================================
+// WEEKLY ARCHIVES LOCAL STORAGE & HYBRID CLOUD CACHE
+// ============================================================================
+
+export function getStoredWeeklyArchives(): WeeklyArchive[] {
+  try {
+    const raw = localStorage.getItem(KEYS.WEEKLY_ARCHIVES);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredWeeklyArchives(archives: WeeklyArchive[]): void {
+  try {
+    localStorage.setItem(KEYS.WEEKLY_ARCHIVES, JSON.stringify(archives));
+  } catch (e) {
+    console.error('Failed to save weekly archives to local storage:', e);
+  }
+}
+
+export async function syncSaveWeeklyArchiveWithCache(archive: WeeklyArchive): Promise<void> {
+  const local = getStoredWeeklyArchives();
+  const index = local.findIndex((a) => a.weekId === archive.weekId);
+  const updated = index >= 0 ? [...local] : [archive, ...local];
+  if (index >= 0) {
+    updated[index] = archive;
+  }
+  // Sort newest week first
+  updated.sort((a, b) => b.weekId.localeCompare(a.weekId));
+  saveStoredWeeklyArchives(updated);
+
+  try {
+    await syncSaveWeeklyArchive(archive);
+  } catch (err) {
+    console.warn('Firestore weekly archive sync warning (cached locally):', err);
+  }
+}
+
+export async function syncDeleteWeeklyArchiveWithCache(weekId: string): Promise<void> {
+  const local = getStoredWeeklyArchives();
+  saveStoredWeeklyArchives(local.filter((a) => a.weekId !== weekId));
+
+  try {
+    await syncDeleteWeeklyArchive(weekId);
+  } catch (err) {
+    console.warn('Firestore weekly archive delete warning:', err);
+  }
+}
+
 

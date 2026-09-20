@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Assignment, DayOfWeek, ScheduleBlock, Transaction, WeeklyFinancialBudget, RecurringExpense } from './types';
+import { Assignment, DayOfWeek, ScheduleBlock, Transaction, WeeklyFinancialBudget, RecurringExpense, WeeklyArchive } from './types';
 import {
   addStoredBlockLog,
   getStoredAssignments,
@@ -15,6 +15,10 @@ import {
   saveStoredFinancialBudget,
   getStoredRecurringExpenses,
   saveStoredRecurringExpenses,
+  getStoredWeeklyArchives,
+  saveStoredWeeklyArchives,
+  syncSaveWeeklyArchiveWithCache,
+  syncDeleteWeeklyArchiveWithCache,
 } from './utils/storage';
 import {
   subscribeToAssignments,
@@ -22,6 +26,7 @@ import {
   subscribeToTransactions,
   subscribeToFinancialSettings,
   subscribeToRecurringExpenses,
+  subscribeToWeeklyArchives,
   syncSaveFinancialSettings,
   syncSaveRecurringExpense,
 } from './lib/firebase';
@@ -91,6 +96,9 @@ export default function App() {
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>(() =>
     getStoredRecurringExpenses()
   );
+  const [weeklyArchives, setWeeklyArchives] = useState<WeeklyArchive[]>(() =>
+    getStoredWeeklyArchives()
+  );
 
   // Real-time Firestore listener for Transactions collection
   useEffect(() => {
@@ -125,6 +133,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Real-time Firestore listener for Weekly Archives
+  useEffect(() => {
+    const unsubscribe = subscribeToWeeklyArchives((remoteArchives) => {
+      if (remoteArchives && remoteArchives.length > 0) {
+        setWeeklyArchives(remoteArchives);
+        saveStoredWeeklyArchives(remoteArchives);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleAddTransaction = async (newTx: Transaction) => {
     setTransactions((prev) => [newTx, ...prev.filter((t) => t.id !== newTx.id)]);
     await syncSaveTransactionWithCache(newTx);
@@ -147,6 +166,20 @@ export default function App() {
     for (const exp of expenses) {
       await syncSaveRecurringExpense(exp);
     }
+  };
+
+  const handleSaveWeeklyArchive = async (archive: WeeklyArchive) => {
+    setWeeklyArchives((prev) => {
+      const updated = [archive, ...prev.filter((a) => a.weekId !== archive.weekId)];
+      updated.sort((a, b) => b.weekId.localeCompare(a.weekId));
+      return updated;
+    });
+    await syncSaveWeeklyArchiveWithCache(archive);
+  };
+
+  const handleDeleteWeeklyArchive = async (weekId: string) => {
+    setWeeklyArchives((prev) => prev.filter((a) => a.weekId !== weekId));
+    await syncDeleteWeeklyArchiveWithCache(weekId);
   };
 
   // ==========================================================================
@@ -561,6 +594,9 @@ export default function App() {
             onUpdateBudgetSettings={handleUpdateBudgetSettings}
             recurringExpenses={recurringExpenses}
             onUpdateRecurringExpenses={handleUpdateRecurringExpenses}
+            weeklyArchives={weeklyArchives}
+            onSaveWeeklyArchive={handleSaveWeeklyArchive}
+            onDeleteWeeklyArchive={handleDeleteWeeklyArchive}
             currentDate={currentDate}
           />
         )}
