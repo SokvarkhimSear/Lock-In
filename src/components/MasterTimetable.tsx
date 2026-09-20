@@ -45,6 +45,7 @@ export const MasterTimetable: React.FC<MasterTimetableProps> = ({
 
   const filteredBlocks = blocksForDay.filter((block) => {
     if (categoryFilter === 'ALL') return true;
+    if (categoryFilter === 'workout' && block.category === 'workout') return true;
     if (categoryFilter === 'class' && block.category === 'class') return true;
     if (categoryFilter === 'study' && (block.category === 'study' || block.category === 'night_study')) return true;
     if (categoryFilter === 'teaching' && block.category === 'teaching') return true;
@@ -78,6 +79,14 @@ export const MasterTimetable: React.FC<MasterTimetableProps> = ({
             }`}
           >
             All ({blocksForDay.length})
+          </button>
+          <button
+            onClick={() => setCategoryFilter('workout')}
+            className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+              categoryFilter === 'workout' ? 'bg-rose-950 text-rose-300 border border-rose-800/40' : 'text-slate-400'
+            }`}
+          >
+            Workout
           </button>
           <button
             onClick={() => setCategoryFilter('class')}

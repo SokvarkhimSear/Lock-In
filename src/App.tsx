@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Assignment, DayOfWeek, ScheduleBlock } from './types';
+import { Assignment, DayOfWeek, ScheduleBlock, Transaction, WeeklyFinancialBudget, RecurringExpense } from './types';
 import {
   addStoredBlockLog,
   getStoredAssignments,
@@ -7,10 +7,23 @@ import {
   saveStoredAssignments,
   syncDeleteAssignment,
   syncSaveAssignment,
+  getStoredTransactions,
+  saveStoredTransactions,
+  syncSaveTransactionWithCache,
+  syncDeleteTransactionWithCache,
+  getStoredFinancialBudget,
+  saveStoredFinancialBudget,
+  getStoredRecurringExpenses,
+  saveStoredRecurringExpenses,
 } from './utils/storage';
 import {
   subscribeToAssignments,
   subscribeToBlockLogs,
+  subscribeToTransactions,
+  subscribeToFinancialSettings,
+  subscribeToRecurringExpenses,
+  syncSaveFinancialSettings,
+  syncSaveRecurringExpense,
 } from './lib/firebase';
 import {
   initTelegramWebApp,
@@ -18,6 +31,7 @@ import {
   sendAssignmentTelegramReminder,
   sendScheduleShiftTelegramReminder,
   sendOneHourPreDeadlineAlert,
+  sendWorkoutTelegramPing,
 } from './lib/telegram';
 import {
   calculateFlowStatus,
@@ -25,6 +39,8 @@ import {
   getCurrentDayBlocks,
   getMinutesUntilDue,
   soundEngine,
+  getICTTimeParts,
+  getWeekIdentifier,
 } from './utils/timeEngine';
 import { Header } from './components/Header';
 import { TodayFlow } from './components/TodayFlow';
@@ -35,11 +51,12 @@ import { AssignmentModal } from './components/AssignmentModal';
 import { ScratchpadWidget } from './components/ScratchpadWidget';
 import { MasterTimetable } from './components/MasterTimetable';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { MoneyTracker } from './components/MoneyTracker';
 import { Plus, Calendar, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   // Navigation
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'timetable' | 'assignments'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'timetable' | 'assignments' | 'money'>('dashboard');
 
   // Real-time clock state
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -62,6 +79,105 @@ export default function App() {
   const [assignments, setAssignments] = useState<Assignment[]>(() => getStoredAssignments());
   const [completedCount, setCompletedCount] = useState<number>(() => getTodayBlockCompletionCount());
   const [completedBlockIds, setCompletedBlockIds] = useState<Set<string>>(new Set());
+
+  // ==========================================================================
+  // MONEY TRACKER STATE & FIRESTORE REAL-TIME SYNCHRONIZATION
+  // ==========================================================================
+  const currentWeekId = useMemo(() => getWeekIdentifier(currentDate), [currentDate]);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => getStoredTransactions());
+  const [budgetSettings, setBudgetSettings] = useState<WeeklyFinancialBudget>(() =>
+    getStoredFinancialBudget(currentWeekId)
+  );
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>(() =>
+    getStoredRecurringExpenses()
+  );
+
+  // Real-time Firestore listener for Transactions collection
+  useEffect(() => {
+    const unsubscribe = subscribeToTransactions((firestoreTx) => {
+      if (firestoreTx) {
+        setTransactions(firestoreTx);
+        saveStoredTransactions(firestoreTx);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore listener for Weekly Financial Settings
+  useEffect(() => {
+    const unsubscribe = subscribeToFinancialSettings((remoteSettings) => {
+      if (remoteSettings) {
+        setBudgetSettings(remoteSettings);
+        saveStoredFinancialBudget(remoteSettings);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore listener for Recurring Expenses
+  useEffect(() => {
+    const unsubscribe = subscribeToRecurringExpenses((remoteRecurring) => {
+      if (remoteRecurring && remoteRecurring.length > 0) {
+        setRecurringExpenses(remoteRecurring);
+        saveStoredRecurringExpenses(remoteRecurring);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddTransaction = async (newTx: Transaction) => {
+    setTransactions((prev) => [newTx, ...prev.filter((t) => t.id !== newTx.id)]);
+    await syncSaveTransactionWithCache(newTx);
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    await syncDeleteTransactionWithCache(id);
+  };
+
+  const handleUpdateBudgetSettings = async (settings: WeeklyFinancialBudget) => {
+    setBudgetSettings(settings);
+    saveStoredFinancialBudget(settings);
+    await syncSaveFinancialSettings(settings);
+  };
+
+  const handleUpdateRecurringExpenses = async (expenses: RecurringExpense[]) => {
+    setRecurringExpenses(expenses);
+    saveStoredRecurringExpenses(expenses);
+    for (const exp of expenses) {
+      await syncSaveRecurringExpense(exp);
+    }
+  };
+
+  // ==========================================================================
+  // 6:55 AM MORNING ROUTINE WORKOUT TELEGRAM PING (Mon – Fri, ICT UTC+7)
+  // Format: "🏋️ WORKOUT TIME - Lock in for your 40-min session!"
+  // ==========================================================================
+  const lastWorkoutPingDateRef = useRef<string>(
+    localStorage.getItem('lockin_last_workout_ping') || ''
+  );
+
+  useEffect(() => {
+    const checkWorkoutPing = async () => {
+      const { dayOfWeek, hours, minutes, dateStr } = getICTTimeParts(new Date());
+
+      // Monday through Friday (1 to 5)
+      const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+      const isWorkoutTime = hours === 6 && minutes === 55;
+
+      if (isWeekday && isWorkoutTime && lastWorkoutPingDateRef.current !== dateStr) {
+        lastWorkoutPingDateRef.current = dateStr;
+        try {
+          localStorage.setItem('lockin_last_workout_ping', dateStr);
+        } catch {}
+        await sendWorkoutTelegramPing();
+      }
+    };
+
+    checkWorkoutPing();
+    const interval = setInterval(checkWorkoutPing, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialize Telegram Mini App WebApp SDK on application load
   useEffect(() => {
@@ -433,6 +549,20 @@ export default function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* VIEW 4: WEEKLY MONEY & EXPENSE TRACKER */}
+        {activeTab === 'money' && (
+          <MoneyTracker
+            transactions={transactions}
+            onAddTransaction={handleAddTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
+            budgetSettings={budgetSettings}
+            onUpdateBudgetSettings={handleUpdateBudgetSettings}
+            recurringExpenses={recurringExpenses}
+            onUpdateRecurringExpenses={handleUpdateRecurringExpenses}
+            currentDate={currentDate}
+          />
         )}
       </main>
 

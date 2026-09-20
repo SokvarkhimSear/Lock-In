@@ -1,6 +1,6 @@
 {
   "name": "LockIn",
-  "description": "Minimal, distraction-free, high-execution productivity and habit-tracking dashboard with real-time timetable engine, deadlines calendar, focus sprint timer, and auto-saving scratchpad.",
+  "description": "Minimal, distraction-free, high-execution productivity dashboard featuring an ICT real-time timetable engine with morning workout routines, deadlines calendar, Telegram notifications, auto-saving scratchpad, and weekly money and expense tracker with Firebase sync.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

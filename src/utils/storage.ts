@@ -1,11 +1,16 @@
-import { Assignment, BlockLog, NoteItem } from '../types';
-import { INITIAL_NOTES } from '../data/scheduleData';
+import { Assignment, BlockLog, NoteItem, Transaction, WeeklyFinancialBudget, RecurringExpense } from '../types';
+import { INITIAL_NOTES, DEFAULT_RECURRING_EXPENSES } from '../data/scheduleData';
 import {
   setFirestoreAssignment,
   deleteFirestoreAssignment,
   setFirestoreNote,
   deleteFirestoreNote,
-  addFirestoreBlockLog
+  addFirestoreBlockLog,
+  syncSaveTransaction,
+  syncDeleteTransaction,
+  syncSaveFinancialSettings,
+  syncSaveRecurringExpense,
+  syncDeleteRecurringExpense
 } from '../lib/firebase';
 
 const KEYS = {
@@ -13,6 +18,9 @@ const KEYS = {
   NOTES: 'lockin_scratchpad_items_v2',
   BLOCK_LOGS: 'lockin_block_logs_v1',
   EXTENSIONS: 'lockin_active_extensions_v1',
+  TRANSACTIONS: 'lockin_transactions_v1',
+  FINANCIAL_BUDGET: 'lockin_financial_budget_v1',
+  RECURRING_EXPENSES: 'lockin_recurring_expenses_v1',
 };
 
 export function getStoredAssignments(): Assignment[] {
@@ -154,3 +162,109 @@ export function getTodayBlockCompletionCount(): number {
   const todayPrefix = new Date().toISOString().split('T')[0];
   return logs.filter((l) => l.timestamp.startsWith(todayPrefix) && l.status === 'completed').length;
 }
+
+// ============================================================================
+// MONEY TRACKER LOCAL STORAGE & HYBRID CLOUD CACHE
+// ============================================================================
+
+export function getStoredTransactions(): Transaction[] {
+  try {
+    const raw = localStorage.getItem(KEYS.TRANSACTIONS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredTransactions(transactions: Transaction[]): void {
+  try {
+    localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+  } catch (e) {
+    console.error('Failed to save transactions to local cache:', e);
+  }
+}
+
+export async function syncSaveTransactionWithCache(transaction: Transaction): Promise<void> {
+  const local = getStoredTransactions();
+  const index = local.findIndex((t) => t.id === transaction.id);
+  const updated = index >= 0 ? [...local] : [transaction, ...local];
+  if (index >= 0) {
+    updated[index] = transaction;
+  }
+  saveStoredTransactions(updated);
+
+  try {
+    await syncSaveTransaction(transaction);
+  } catch (err) {
+    console.warn('Firestore transaction sync warning (cached locally):', err);
+  }
+}
+
+export async function syncDeleteTransactionWithCache(transactionId: string): Promise<void> {
+  const local = getStoredTransactions();
+  saveStoredTransactions(local.filter((t) => t.id !== transactionId));
+
+  try {
+    await syncDeleteTransaction(transactionId);
+  } catch (err) {
+    console.warn('Firestore transaction delete warning:', err);
+  }
+}
+
+export function getStoredFinancialBudget(currentWeekId: string): WeeklyFinancialBudget {
+  try {
+    const raw = localStorage.getItem(KEYS.FINANCIAL_BUDGET);
+    if (!raw) {
+      return {
+        weeklyBudgetLimit: 150,
+        totalIncome: 0,
+        currentWeekId,
+        archivedWeeks: [],
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      weeklyBudgetLimit: parsed.weeklyBudgetLimit || 150,
+      totalIncome: parsed.totalIncome || 0,
+      currentWeekId: parsed.currentWeekId || currentWeekId,
+      archivedWeeks: Array.isArray(parsed.archivedWeeks) ? parsed.archivedWeeks : [],
+    };
+  } catch {
+    return {
+      weeklyBudgetLimit: 150,
+      totalIncome: 0,
+      currentWeekId,
+      archivedWeeks: [],
+    };
+  }
+}
+
+export function saveStoredFinancialBudget(budget: WeeklyFinancialBudget): void {
+  try {
+    localStorage.setItem(KEYS.FINANCIAL_BUDGET, JSON.stringify(budget));
+  } catch (e) {
+    console.error('Failed to save budget settings locally:', e);
+  }
+}
+
+export function getStoredRecurringExpenses(): RecurringExpense[] {
+  try {
+    const raw = localStorage.getItem(KEYS.RECURRING_EXPENSES);
+    if (!raw) return DEFAULT_RECURRING_EXPENSES;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_RECURRING_EXPENSES;
+  } catch {
+    return DEFAULT_RECURRING_EXPENSES;
+  }
+}
+
+export function saveStoredRecurringExpenses(expenses: RecurringExpense[]): void {
+  try {
+    localStorage.setItem(KEYS.RECURRING_EXPENSES, JSON.stringify(expenses));
+  } catch (e) {
+    console.error('Failed to save recurring expenses locally:', e);
+  }
+}
+

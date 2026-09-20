@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import configJson from '../../firebase-applet-config.json';
-import { Assignment, NoteItem, BlockLog } from '../types';
+import { Assignment, NoteItem, BlockLog, Transaction, WeeklyFinancialBudget, RecurringExpense } from '../types';
 
 /**
  * ============================================================================
@@ -201,3 +201,132 @@ export function subscribeToBlockLogs(
     }
   );
 }
+
+// ============================================================================
+// MONEY TRACKER & TRANSACTIONS FIRESTORE REAL-TIME SYNC
+// ============================================================================
+export const TRANSACTIONS_COLLECTION = 'transactions';
+export const FINANCIAL_SETTINGS_COLLECTION = 'financial_settings';
+export const RECURRING_EXPENSES_COLLECTION = 'recurring_expenses';
+
+/**
+ * Real-time listener for Transactions collection
+ */
+export function subscribeToTransactions(
+  onUpdate: (transactions: Transaction[]) => void,
+  onError?: (err: Error) => void
+) {
+  const colRef = collection(db, TRANSACTIONS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const items: Transaction[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as Transaction;
+        items.push({
+          ...data,
+          id: docSnap.id,
+        });
+      });
+      // Sort newest first
+      items.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Firestore transactions subscription warning:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Upsert (Create or Update) a Transaction document
+ */
+export async function syncSaveTransaction(transaction: Transaction): Promise<void> {
+  const docRef = doc(db, TRANSACTIONS_COLLECTION, transaction.id);
+  await setDoc(docRef, transaction, { merge: true });
+}
+
+/**
+ * Delete a Transaction from Firestore
+ */
+export async function syncDeleteTransaction(transactionId: string): Promise<void> {
+  const docRef = doc(db, TRANSACTIONS_COLLECTION, transactionId);
+  await deleteDoc(docRef);
+}
+
+/**
+ * Real-time listener for Weekly Financial Budget & Archive Settings
+ */
+export function subscribeToFinancialSettings(
+  onUpdate: (settings: WeeklyFinancialBudget | null) => void,
+  onError?: (err: Error) => void
+) {
+  const docRef = doc(db, FINANCIAL_SETTINGS_COLLECTION, 'global_budget');
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data() as WeeklyFinancialBudget);
+      } else {
+        onUpdate(null);
+      }
+    },
+    (err) => {
+      console.warn('Firestore financial settings subscription warning:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Upsert Weekly Financial Budget & Archive Settings
+ */
+export async function syncSaveFinancialSettings(settings: WeeklyFinancialBudget): Promise<void> {
+  const docRef = doc(db, FINANCIAL_SETTINGS_COLLECTION, 'global_budget');
+  await setDoc(docRef, settings, { merge: true });
+}
+
+/**
+ * Real-time listener for Recurring Expenses
+ */
+export function subscribeToRecurringExpenses(
+  onUpdate: (expenses: RecurringExpense[]) => void,
+  onError?: (err: Error) => void
+) {
+  const colRef = collection(db, RECURRING_EXPENSES_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const items: RecurringExpense[] = [];
+      snapshot.forEach((docSnap) => {
+        items.push({
+          ...(docSnap.data() as RecurringExpense),
+          id: docSnap.id,
+        });
+      });
+      onUpdate(items);
+    },
+    (err) => {
+      console.warn('Firestore recurring expenses subscription warning:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Save / Update Recurring Expense in Firestore
+ */
+export async function syncSaveRecurringExpense(expense: RecurringExpense): Promise<void> {
+  const docRef = doc(db, RECURRING_EXPENSES_COLLECTION, expense.id);
+  await setDoc(docRef, expense, { merge: true });
+}
+
+/**
+ * Delete Recurring Expense in Firestore
+ */
+export async function syncDeleteRecurringExpense(expenseId: string): Promise<void> {
+  const docRef = doc(db, RECURRING_EXPENSES_COLLECTION, expenseId);
+  await deleteDoc(docRef);
+}
+

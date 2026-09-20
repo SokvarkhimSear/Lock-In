@@ -1,4 +1,4 @@
-import { Assignment, Course, DayOfWeek, ScheduleBlock } from '../types';
+import { Assignment, Course, DayOfWeek, RecurringExpense, ScheduleBlock } from '../types';
 
 export const COURSES: Course[] = [
   { code: 'COSC 121', name: 'Computer Science A', color: 'emerald' },
@@ -11,6 +11,45 @@ export const COURSES: Course[] = [
 
 export const MASTER_SCHEDULE: ScheduleBlock[] = [
   // --- WEEKDAYS (Monday - Friday) ---
+  // 07:00 AM – 07:40 AM: Workout Block (Strength, Cardio & Mobility)
+  {
+    id: 'wd-0700-workout',
+    title: 'Workout Block',
+    locationOrDetails: '🏋️ Strength, Cardio & Mobility (40m)',
+    startTime: '07:00',
+    endTime: '07:40',
+    startMinutes: 420,
+    endMinutes: 460,
+    days: [1, 2, 3, 4, 5], // Mon - Fri
+    category: 'workout',
+  },
+
+  // 07:40 AM – 08:00 AM: Shower & Quick Breakfast
+  {
+    id: 'wd-0740-breakfast',
+    title: 'Shower & Quick Breakfast',
+    locationOrDetails: '🍳🚿 Eggs + Toast / Fruit & Hygiene (20m)',
+    startTime: '07:40',
+    endTime: '08:00',
+    startMinutes: 460,
+    endMinutes: 480,
+    days: [1, 2, 3, 4, 5], // Mon - Fri
+    category: 'chores',
+  },
+
+  // 08:00 AM – 08:30 AM: Morning University Classes & Academic Study
+  {
+    id: 'wd-0800-prep-study',
+    title: 'Morning University Prep & Academic Study',
+    locationOrDetails: '🎒 Review Lecture Notes & Commute to Campus',
+    startTime: '08:00',
+    endTime: '08:30',
+    startMinutes: 480,
+    endMinutes: 510,
+    days: [1, 2, 3, 4, 5], // Mon - Fri
+    category: 'study',
+  },
+
   // 08:30 AM – 10:00 AM
   {
     id: 'wd-0830-mon-wed',
@@ -456,6 +495,41 @@ export const MASTER_SCHEDULE: ScheduleBlock[] = [
 ];
 
 export const INITIAL_ASSIGNMENTS: Assignment[] = [];
+
+export const DEFAULT_RECURRING_EXPENSES: RecurringExpense[] = [
+  {
+    id: 'rec-grocery',
+    title: 'Grocery, Eggs & Daily Meal Prep',
+    amount: 35,
+    category: 'grocery_food',
+    notes: 'Weekly fresh groceries, eggs, fruits & meal supplies',
+    isEnabled: true,
+  },
+  {
+    id: 'rec-fuel',
+    title: 'Transport & Scooter Fuel',
+    amount: 10,
+    category: 'transport_fuel',
+    notes: 'Weekly fuel refills & university commute transit',
+    isEnabled: true,
+  },
+  {
+    id: 'rec-trading',
+    title: 'Trading Account Capital & Broker Fees',
+    amount: 25,
+    category: 'trading_capital',
+    notes: 'Disciplined weekly capital contribution & platform execution fees',
+    isEnabled: true,
+  },
+  {
+    id: 'rec-coffee',
+    title: 'Coffee & Daily Refreshments',
+    amount: 8,
+    category: 'coffee_misc',
+    notes: 'Morning coffee, cold brews & hydration resets',
+    isEnabled: true,
+  },
+];
 
 export const INITIAL_NOTES = [
   {

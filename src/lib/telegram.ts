@@ -156,3 +156,19 @@ export async function sendOneHourPreDeadlineAlert(
   return sendTelegramMessage(message);
 }
 
+/**
+ * 6:55 AM Morning Workout Telegram Ping (Mon – Fri)
+ * User requested: "🏋️ WORKOUT TIME - Lock in for your 40-min session!"
+ */
+export async function sendWorkoutTelegramPing(): Promise<boolean> {
+  const message =
+    `🏋️ *WORKOUT TIME - Lock in for your 40-min session!*\n\n` +
+    `*Time:* 07:00 AM – 07:40 AM\n` +
+    `*Focus:* Strength, Cardio & Mobility\n` +
+    `*Next:* 07:40 AM Shower & Quick Breakfast\n\n` +
+    `_Locked in. Hydrate, focus, and dominate the morning!_`;
+
+  return sendTelegramMessage(message);
+}
+
+

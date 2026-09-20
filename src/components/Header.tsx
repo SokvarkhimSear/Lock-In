@@ -12,15 +12,16 @@ import {
   X,
   Cloud,
   Send,
-  Check
+  Check,
+  Wallet
 } from 'lucide-react';
 import { DayOfWeek } from '../types';
-import { sendTelegramMessage, triggerHapticFeedback } from '../lib/telegram';
+import { sendTelegramMessage, triggerHapticFeedback, sendWorkoutTelegramPing } from '../lib/telegram';
 
 interface HeaderProps {
   currentDate: Date;
-  activeTab: 'dashboard' | 'timetable' | 'assignments';
-  onTabChange: (tab: 'dashboard' | 'timetable' | 'assignments') => void;
+  activeTab: 'dashboard' | 'timetable' | 'assignments' | 'money';
+  onTabChange: (tab: 'dashboard' | 'timetable' | 'assignments' | 'money') => void;
   onOpenFocusSprint: () => void;
   onOpenAddModal: () => void;
   completedTodayCount: number;
@@ -209,6 +210,18 @@ export const Header: React.FC<HeaderProps> = ({
             <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
             <span>Deadlines & Calendar</span>
           </button>
+
+          <button
+            onClick={() => onTabChange('money')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+              activeTab === 'money'
+                ? 'bg-[#232B3E] text-slate-100 shadow-sm font-semibold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Money Tracker</span>
+          </button>
         </nav>
 
         {/* Right Controls: Clock, Stats, Sprint Trigger, Simulation Toggle */}
@@ -286,6 +299,18 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <p className="text-xs font-medium text-slate-400 mb-2">Quick Presets from Master Schedule:</p>
               <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handlePresetSim(1, 7, 15)}
+                  className="px-2.5 py-1 text-xs bg-[#0B0F17] hover:bg-[#232B3E] border border-rose-500/30 rounded-lg text-rose-300 font-medium"
+                >
+                  🏋️ Mon 07:15 AM (Workout Block)
+                </button>
+                <button
+                  onClick={() => handlePresetSim(1, 7, 45)}
+                  className="px-2.5 py-1 text-xs bg-[#0B0F17] hover:bg-[#232B3E] border border-amber-500/30 rounded-lg text-amber-300"
+                >
+                  🍳 Mon 07:45 AM (Shower & Breakfast)
+                </button>
                 <button
                   onClick={() => handlePresetSim(1, 8, 45)}
                   className="px-2.5 py-1 text-xs bg-[#0B0F17] hover:bg-[#232B3E] border border-[#232B3E] rounded-lg text-slate-300"
@@ -369,10 +394,26 @@ export const Header: React.FC<HeaderProps> = ({
                     Simulate
                   </button>
                 </div>
+
+                <div className="pt-2 border-t border-[#232B3E]/60">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      triggerHapticFeedback('medium');
+                      const sent = await sendWorkoutTelegramPing();
+                      if (sent) {
+                        alert('6:55 AM Workout Ping dispatched to Telegram ID 2128817856!');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all"
+                  >
+                    <span>🏋️ Test 6:55 AM Workout Ping (Telegram)</span>
+                  </button>
+                </div>
               </div>
 
               {isSimulating && (
-                <div className="flex justify-end">
+                <div className="flex justify-end pt-2">
                   <button
                     type="button"
                     onClick={() => {

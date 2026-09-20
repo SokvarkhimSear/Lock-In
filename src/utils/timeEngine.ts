@@ -26,10 +26,11 @@ export function calculateFlowStatus(
   customDayOverride?: DayOfWeek,
   customMinutesOverride?: number
 ): CurrentFlowStatus {
-  const dayIndex = (customDayOverride !== undefined ? customDayOverride : currentDate.getDay()) as DayOfWeek;
+  const ict = getICTTimeParts(currentDate);
+  const dayIndex = (customDayOverride !== undefined ? customDayOverride : ict.dayOfWeek) as DayOfWeek;
   const currentMinutes = customMinutesOverride !== undefined
     ? customMinutesOverride
-    : currentDate.getHours() * 60 + currentDate.getMinutes();
+    : ict.minutesOfDay;
 
   const todayBlocks = getCurrentDayBlocks(dayIndex);
 
@@ -155,6 +156,8 @@ export function formatTimeWindow(start: string, end: string): string {
 
 export function getCategoryBadge(category: string): { label: string; color: string; border: string; bg: string } {
   switch (category) {
+    case 'workout':
+      return { label: 'Workout & Fitness', color: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-950/40' };
     case 'class':
       return { label: 'Lecture / Lab', color: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-950/40' };
     case 'study':
@@ -367,4 +370,108 @@ export function getMinutesUntilDue(dueDate: string, dueTime?: string, referenceD
   const diffMs = targetEpoch - referenceDate.getTime();
   return diffMs / (60 * 1000);
 }
+
+/**
+ * Extracts exact Indochina Time (Asia/Phnom_Penh, UTC+7) components from any Date.
+ */
+export function getICTTimeParts(date: Date = new Date()) {
+  const utcMs = date.getTime();
+  const ictMs = utcMs + (7 * 3600000);
+  const ictDate = new Date(ictMs);
+
+  const dayOfWeek = ictDate.getUTCDay() as DayOfWeek;
+  const hours = ictDate.getUTCHours();
+  const minutes = ictDate.getUTCMinutes();
+  const seconds = ictDate.getUTCSeconds();
+  const minutesOfDay = hours * 60 + minutes;
+
+  const year = ictDate.getUTCFullYear();
+  const monthNum = ictDate.getUTCMonth() + 1;
+  const dayNum = ictDate.getUTCDate();
+  const month = String(monthNum).padStart(2, '0');
+  const day = String(dayNum).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  return {
+    dayOfWeek,
+    hours,
+    minutes,
+    seconds,
+    minutesOfDay,
+    year,
+    monthNum,
+    dayNum,
+    month,
+    day,
+    dateStr,
+    timeStr,
+  };
+}
+
+/**
+ * Computes the unique Week ID (e.g. "2026-W38") strictly in ICT (Asia/Phnom_Penh).
+ * Uses ISO week numbering starting Monday.
+ */
+export function getWeekIdentifier(date: Date = new Date()): string {
+  const { year, monthNum, dayNum } = getICTTimeParts(date);
+  // Create a target UTC date corresponding to ICT calendar date
+  const target = new Date(Date.UTC(year, monthNum - 1, dayNum));
+  const dayNr = (target.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = target.getTime();
+  target.setUTCMonth(0, 1);
+  if (target.getUTCDay() !== 4) {
+    target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+  }
+  const weekNumber = 1 + Math.ceil((firstThursday - target.getTime()) / 604800000);
+  return `${year}-W${String(weekNumber).padStart(2, '0')}`;
+}
+
+/**
+ * Returns formatted start (Monday) and end (Sunday) dates for the current ICT week.
+ */
+export function getWeekStartEndDates(date: Date = new Date()): {
+  startDateStr: string;
+  endDateStr: string;
+  formattedRange: string;
+} {
+  const { year, monthNum, dayNum, dayOfWeek } = getICTTimeParts(date);
+  // Monday is 1, Sunday is 0 -> days since Monday
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+  const mondayEpoch = Date.UTC(year, monthNum - 1, dayNum) - (daysSinceMonday * 86400000);
+  const sundayEpoch = mondayEpoch + (6 * 86400000);
+
+  const monDate = new Date(mondayEpoch);
+  const sunDate = new Date(sundayEpoch);
+
+  const startY = monDate.getUTCFullYear();
+  const startM = String(monDate.getUTCMonth() + 1).padStart(2, '0');
+  const startD = String(monDate.getUTCDate()).padStart(2, '0');
+  const startDateStr = `${startY}-${startM}-${startD}`;
+
+  const endY = sunDate.getUTCFullYear();
+  const endM = String(sunDate.getUTCMonth() + 1).padStart(2, '0');
+  const endD = String(sunDate.getUTCDate()).padStart(2, '0');
+  const endDateStr = `${endY}-${endM}-${endD}`;
+
+  const monLabel = monDate.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+  const sunLabel = sunDate.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+
+  return {
+    startDateStr,
+    endDateStr,
+    formattedRange: `${monLabel} – ${sunLabel}`,
+  };
+}
+
+/**
+ * Checks if current ICT time is Sunday night (21:00 or later) or past week boundary.
+ */
+export function isSundayNightICT(date: Date = new Date()): boolean {
+  const { dayOfWeek, hours } = getICTTimeParts(date);
+  return dayOfWeek === 0 && hours >= 21;
+}
+
 
