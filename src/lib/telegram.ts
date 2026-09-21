@@ -6,14 +6,34 @@ export interface TelegramRecipient {
   name: string;
 }
 
+/**
+ * Safely resolves the Telegram Bot Token from environment variables:
+ * - Vite/React frontend: import.meta.env.VITE_TELEGRAM_BOT_TOKEN
+ * - Backend/serverless API routes: process.env.TELEGRAM_BOT_TOKEN
+ */
+export function getTelegramBotToken(): string {
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TELEGRAM_BOT_TOKEN) {
+    return import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+  }
+  if (typeof process !== 'undefined' && process.env && process.env.TELEGRAM_BOT_TOKEN) {
+    return process.env.TELEGRAM_BOT_TOKEN;
+  }
+  return '';
+}
+
 export const TELEGRAM_CONFIG = {
-  botToken: "8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA",
+  get botToken(): string {
+    return getTelegramBotToken();
+  },
   userTelegramId: "2128817856",
   recipients: [
     { id: "2128817856", name: "Primary Account" },
     { id: "957660223", name: "Heng Huykeang" }
   ] as TelegramRecipient[],
-  apiUrl: "https://api.telegram.org/bot8988649214:AAFZviw0QGUsbkrdXdFyQK7y4HyJeOR9jrA/sendMessage"
+  get apiUrl(): string {
+    const token = getTelegramBotToken();
+    return token ? `https://api.telegram.org/bot${token}/sendMessage` : '';
+  }
 };
 
 // Global TypeScript declaration for Telegram WebApp
@@ -73,6 +93,16 @@ export function triggerHapticFeedback(style: 'light' | 'medium' | 'heavy' | 'rig
  * Dispatches a message to all registered Telegram recipients using fetch()
  */
 export async function sendTelegramMessage(text: string, parseMode: 'Markdown' | 'HTML' = 'Markdown'): Promise<boolean> {
+  const token = TELEGRAM_CONFIG.botToken;
+  const apiUrl = TELEGRAM_CONFIG.apiUrl;
+
+  if (!token || !apiUrl) {
+    console.warn(
+      'Telegram alert skipped: Bot token not found. Please set VITE_TELEGRAM_BOT_TOKEN (client) or TELEGRAM_BOT_TOKEN (server) environment variable.'
+    );
+    return false;
+  }
+
   const recipients = TELEGRAM_CONFIG.recipients;
   try {
     const results = await Promise.allSettled(
@@ -83,7 +113,7 @@ export async function sendTelegramMessage(text: string, parseMode: 'Markdown' | 
           parse_mode: parseMode
         };
 
-        const response = await fetch(TELEGRAM_CONFIG.apiUrl, {
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

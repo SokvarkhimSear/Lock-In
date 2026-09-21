@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={handleSendTelegramTest}
                   disabled={telegramStatus === 'sending'}
                   className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition-colors cursor-pointer"
-                  title="Telegram Bot: 8988649214 -> ID 2128817856. Click to send test alert!"
+                  title="Telegram Alerts Active (Recipients: 2128817856 & 957660223). Click to send test alert!"
                 >
                   {telegramStatus === 'sent' ? (
                     <Check className="w-3 h-3 text-emerald-400" />
